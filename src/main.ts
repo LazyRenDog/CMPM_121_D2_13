@@ -22,5 +22,8 @@ const container = document.createElement("div");
 container.style.display = "flex";
 container.style.flexDirection = "row";
 container.style.gap = "16px";
+container.style.justifyContent = "center";
+container.style.alignItems = "center";
 container.appendChild(canvas);
+
 app.append(container);
