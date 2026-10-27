@@ -8,6 +8,12 @@ title.textContent = "Comic Strip Generator";
 const message = document.createElement("p");
 message.textContent = "Your project starts here.";
 
+const undoButton = document.createElement("button");
+undoButton.textContent = "undo";
+
+const redoButton = document.createElement("button");
+redoButton.textContent = "redo";
+
 let canvasWidth = 500;
 let canvasHeight = 500;
 
@@ -18,12 +24,22 @@ canvas.style = "border: 2px solid black";
 
 app.append(title);
 
-const container = document.createElement("div");
-container.style.display = "flex";
-container.style.flexDirection = "row";
-container.style.gap = "16px";
-container.style.justifyContent = "center";
-container.style.alignItems = "center";
-container.appendChild(canvas);
+const canvasContainer = document.createElement("div");
+canvasContainer.style.display = "flex";
+canvasContainer.style.flexDirection = "row";
+canvasContainer.style.gap = "16px";
+canvasContainer.style.justifyContent = "center";
+canvasContainer.style.alignItems = "center";
+canvasContainer.appendChild(canvas);
 
-app.append(container);
+const buttonContainer = document.createElement("div");
+buttonContainer.style.display = "flex";
+buttonContainer.style.flexDirection = "row";
+buttonContainer.style.gap = "50px";
+buttonContainer.style.marginTop = "16px";
+buttonContainer.style.justifyContent = "center";
+buttonContainer.style.alignItems = "center";
+buttonContainer.appendChild(undoButton);
+buttonContainer.appendChild(redoButton);
+
+app.append(canvasContainer, buttonContainer);
