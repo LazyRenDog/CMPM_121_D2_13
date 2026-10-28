@@ -9,20 +9,64 @@ const title = document.createElement("h1");
 title.textContent = "Comic Strip Generator";
 
 const message = document.createElement("p");
-message.textContent = "Your project starts here.";
+message.textContent = "Draw on the canvas to start your comic";
 
 const undoButton = document.createElement("button");
-undoButton.textContent = "undo";
+undoButton.textContent = "Undo";
 
 const redoButton = document.createElement("button");
-redoButton.textContent = "redo";
+redoButton.textContent = "Redo";
 
 const canvas = document.createElement("canvas");
 canvas.width = canvasWidth;
 canvas.height = canvasHeight;
 canvas.style = "border: 2px solid black";
+canvas.style.background = "#ffffff";
+canvas.style.cursor = "crosshair";
 
 const ctx = canvas.getContext("2d")!;
+
+interface Point {
+  x: number;
+  y: number;
+}
+
+interface DrawableCommand {
+  display(targetCtx: CanvasRenderingContext2D): void;
+}
+
+class StrokeCommand implements DrawableCommand {
+  points: Point[];
+
+  constructor(startPoint: Point) {
+    this.points = [startPoint];
+  }
+
+  addPoint(pt: Point): void {
+    this.points.push(pt);
+  }
+
+  display(targetCtx: CanvasRenderingContext2D): void {
+    if (this.points.length === 0) return;
+    targetCtx.save();
+    targetCtx.lineCap = "round";
+    targetCtx.lineJoin = "round";
+    targetCtx.strokeStyle = "#111111";
+    targetCtx.lineWidth = 3;
+    targetCtx.beginPath();
+    targetCtx.moveTo(this.points[0].x, this.points[0].y);
+
+    for (let i = 1; i < this.points.length; i++) {
+      targetCtx.lineTo(this.points[i].x, this.points[i].y);
+    }
+    if (this.points.length === 1) {
+      targetCtx.lineTo(this.points[0].x + 0.1, this.points[0].y + 0.1);
+    }
+
+    targetCtx.stroke();
+    targetCtx.restore();
+  }
+}
 
 interface CursorState {
   x: number;
@@ -30,23 +74,14 @@ interface CursorState {
   isDown: boolean;
 }
 
-interface point {
-  x: number;
-  y: number;
-}
-
-interface stroke {
-  points: point[];
-}
-
 interface DrawingState {
-  strokes: stroke[];
-  redoStrokes: stroke[];
+  commands: DrawableCommand[];
+  redoCommands: DrawableCommand[];
 }
 
 const drawingState: DrawingState = {
-  strokes: [],
-  redoStrokes: [],
+  commands: [],
+  redoCommands: [],
 };
 
 const cursorState: CursorState = {
@@ -55,43 +90,45 @@ const cursorState: CursorState = {
   isDown: false,
 };
 
-let activeStroke: stroke | null;
+let activeStroke: StrokeCommand | null = null;
 
 canvas.addEventListener("mousedown", (mouse) => {
-  drawingState.redoStrokes.splice(0, drawingState.redoStrokes.length);
   cursorState.x = mouse.offsetX;
   cursorState.y = mouse.offsetY;
-  activeStroke = {
-    points: [],
-  };
-  drawingState.strokes.push(activeStroke);
-  activeStroke.points.push({ x: cursorState.x, y: cursorState.y });
   cursorState.isDown = true;
+  activeStroke = new StrokeCommand({
+    x: cursorState.x,
+    y: cursorState.y,
+  });
 });
 
 canvas.addEventListener("mousemove", (mouse) => {
-  if (cursorState.isDown) {
+  if (cursorState.isDown && activeStroke) {
     ctx.beginPath();
     ctx.moveTo(cursorState.x, cursorState.y);
     ctx.lineTo(mouse.offsetX, mouse.offsetY);
     ctx.stroke();
     cursorState.x = mouse.offsetX;
     cursorState.y = mouse.offsetY;
-    activeStroke!.points.push({
+    activeStroke.addPoint({
       x: cursorState.x,
       y: cursorState.y,
     });
   }
 });
 
-canvas.addEventListener("mouseout", () => {
+function finishStroke(): void {
+  if (cursorState.isDown && activeStroke) {
+    drawingState.commands.push(activeStroke);
+    drawingState.redoCommands.length = 0;
+    message.textContent = `Commited actions: ${drawingState.commands.length}`;
+  }
   cursorState.isDown = false;
   activeStroke = null;
-});
-canvas.addEventListener("mouseup", () => {
-  cursorState.isDown = false;
-  activeStroke = null;
-});
+}
+
+canvas.addEventListener("mouseout", finishStroke);
+canvas.addEventListener("mouseup", finishStroke);
 
 const canvasContainer = document.createElement("div");
 canvasContainer.style.display = "flex";
@@ -104,11 +141,11 @@ canvasContainer.appendChild(canvas);
 const buttonContainer = document.createElement("div");
 buttonContainer.style.display = "flex";
 buttonContainer.style.flexDirection = "row";
-buttonContainer.style.gap = "50px";
+buttonContainer.style.gap = "16px";
 buttonContainer.style.marginTop = "16px";
 buttonContainer.style.justifyContent = "center";
 buttonContainer.style.alignItems = "center";
 buttonContainer.appendChild(undoButton);
 buttonContainer.appendChild(redoButton);
 
-app.append(title, canvasContainer, buttonContainer);
+app.append(title, message, canvasContainer, buttonContainer);
