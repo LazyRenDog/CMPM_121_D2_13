@@ -148,6 +148,17 @@ function finishStroke(): void {
 canvas.addEventListener("mouseout", finishStroke);
 canvas.addEventListener("mouseup", finishStroke);
 
+//undo
+undoButton.addEventListener("click", () => {
+  if (drawingState.commands.length === 0) return;
+  const lastCommand = drawingState.commands.pop();
+  if (lastCommand) {
+    drawingState.redoCommands.push(lastCommand);
+  }
+  redraw();
+  message.textContent = `Committed actions: ${drawingState.commands.length}`;
+});
+
 redrawCheckButton.addEventListener("click", () => {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   redraw();
