@@ -1,5 +1,8 @@
+import { clear } from "node:console";
+
 const app = document.querySelector<HTMLElement>("#app")!;
 app.style.textAlign = "center";
+app.style.fontFamily = "sans-serif";
 document.body.style.background = "#edf9ff";
 
 const canvasWidth = 500;
@@ -16,6 +19,12 @@ undoButton.textContent = "Undo";
 
 const redoButton = document.createElement("button");
 redoButton.textContent = "Redo";
+
+const redrawCheckButton = document.createElement("button");
+redrawCheckButton.textContent = "Redraw (Dev Check)";
+
+const clearButton = document.createElement("button");
+clearButton.textContent = "Clear Comic";
 
 const canvas = document.createElement("canvas");
 canvas.width = canvasWidth;
@@ -92,6 +101,16 @@ const cursorState: CursorState = {
 
 let activeStroke: StrokeCommand | null = null;
 
+function redraw(): void {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  for (const cmd of drawingState.commands) {
+    cmd.display(ctx);
+  }
+  if (activeStroke) {
+    activeStroke.display(ctx);
+  }
+}
+
 canvas.addEventListener("mousedown", (mouse) => {
   cursorState.x = mouse.offsetX;
   cursorState.y = mouse.offsetY;
@@ -100,20 +119,18 @@ canvas.addEventListener("mousedown", (mouse) => {
     x: cursorState.x,
     y: cursorState.y,
   });
+  redraw();
 });
 
 canvas.addEventListener("mousemove", (mouse) => {
   if (cursorState.isDown && activeStroke) {
-    ctx.beginPath();
-    ctx.moveTo(cursorState.x, cursorState.y);
-    ctx.lineTo(mouse.offsetX, mouse.offsetY);
-    ctx.stroke();
     cursorState.x = mouse.offsetX;
     cursorState.y = mouse.offsetY;
     activeStroke.addPoint({
       x: cursorState.x,
       y: cursorState.y,
     });
+    redraw();
   }
 });
 
@@ -125,10 +142,26 @@ function finishStroke(): void {
   }
   cursorState.isDown = false;
   activeStroke = null;
+  redraw();
 }
 
 canvas.addEventListener("mouseout", finishStroke);
 canvas.addEventListener("mouseup", finishStroke);
+
+redrawCheckButton.addEventListener("click", () => {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  redraw();
+  message.textContent =
+    `Surface cleared (${drawingState.commands.length} items)`;
+});
+
+clearButton.addEventListener("click", () => {
+  if (drawingState.commands.length === 0) return;
+  drawingState.commands.length = 0;
+  drawingState.redoCommands.length = 0;
+  redraw();
+  message.textContent = "Document cleared";
+});
 
 const canvasContainer = document.createElement("div");
 canvasContainer.style.display = "flex";
@@ -145,7 +178,11 @@ buttonContainer.style.gap = "16px";
 buttonContainer.style.marginTop = "16px";
 buttonContainer.style.justifyContent = "center";
 buttonContainer.style.alignItems = "center";
-buttonContainer.appendChild(undoButton);
-buttonContainer.appendChild(redoButton);
+buttonContainer.append(
+  undoButton,
+  redoButton,
+  redrawCheckButton,
+  clearButton,
+);
 
 app.append(title, message, canvasContainer, buttonContainer);
