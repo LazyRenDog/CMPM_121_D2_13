@@ -1,4 +1,4 @@
-import { clear } from "node:console";
+// import { clear } from "node:console";
 
 const app = document.querySelector<HTMLElement>("#app")!;
 app.style.textAlign = "center";
