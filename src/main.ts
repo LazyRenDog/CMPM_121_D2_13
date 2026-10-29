@@ -109,6 +109,9 @@ function redraw(): void {
   if (activeStroke) {
     activeStroke.display(ctx);
   }
+
+  undoButton.disabled = drawingState.commands.length === 0;
+  redoButton.disabled = drawingState.redoCommands.length === 0;
 }
 
 canvas.addEventListener("mousedown", (mouse) => {
