@@ -156,7 +156,19 @@ undoButton.addEventListener("click", () => {
     drawingState.redoCommands.push(lastCommand);
   }
   redraw();
-  message.textContent = `Committed actions: ${drawingState.commands.length}`;
+  message.textContent = `Commited actions: ${drawingState.commands.length}`;
+});
+
+//redo
+redoButton.addEventListener("click", () => {
+  if (drawingState.redoCommands.length === 0) return;
+  const undoneCommand = drawingState.redoCommands.pop();
+  if (undoneCommand) {
+    drawingState.commands.push(undoneCommand);
+  }
+
+  redraw();
+  message.textContent = `Commited actions: ${drawingState.commands.length}`;
 });
 
 redrawCheckButton.addEventListener("click", () => {
