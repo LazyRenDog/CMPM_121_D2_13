@@ -7,12 +7,19 @@ document.body.style.background = "#edf9ff";
 
 const canvasWidth = 500;
 const canvasHeight = 500; //plan on making this change depending on if in full strip or frame mode
+let penSize = 3;
 
 const title = document.createElement("h1");
 title.textContent = "Comic Strip Generator";
 
 const message = document.createElement("p");
 message.textContent = "Draw on the canvas to start your comic";
+
+const thickPenButton = document.createElement("button");
+thickPenButton.textContent = "Thick Pen";
+
+const thinPenButton = document.createElement("button");
+thinPenButton.textContent = "Thin Pen";
 
 const undoButton = document.createElement("button");
 undoButton.textContent = "Undo";
@@ -46,9 +53,11 @@ interface DrawableCommand {
 
 class StrokeCommand implements DrawableCommand {
   points: Point[];
+  penWidth: number;
 
-  constructor(startPoint: Point) {
+  constructor(startPoint: Point, width: number) {
     this.points = [startPoint];
+    this.penWidth = width;
   }
 
   addPoint(pt: Point): void {
@@ -61,7 +70,7 @@ class StrokeCommand implements DrawableCommand {
     targetCtx.lineCap = "round";
     targetCtx.lineJoin = "round";
     targetCtx.strokeStyle = "#111111";
-    targetCtx.lineWidth = 3;
+    targetCtx.lineWidth = this.penWidth;
     targetCtx.beginPath();
     targetCtx.moveTo(this.points[0].x, this.points[0].y);
 
@@ -118,10 +127,10 @@ canvas.addEventListener("mousedown", (mouse) => {
   cursorState.x = mouse.offsetX;
   cursorState.y = mouse.offsetY;
   cursorState.isDown = true;
-  activeStroke = new StrokeCommand({
-    x: cursorState.x,
-    y: cursorState.y,
-  });
+  activeStroke = new StrokeCommand(
+    { x: cursorState.x, y: cursorState.y },
+    penSize,
+  );
   redraw();
 });
 
@@ -189,6 +198,26 @@ clearButton.addEventListener("click", () => {
   message.textContent = "Document cleared";
 });
 
+thinPenButton.addEventListener("click", () => {
+  penSize = 3;
+});
+
+thickPenButton.addEventListener("click", () => {
+  penSize = 10;
+});
+
+const toolContainer = document.createElement("div");
+toolContainer.style.display = "flex";
+toolContainer.style.flexDirection = "row";
+toolContainer.style.gap = "16px";
+toolContainer.style.marginBottom = "16px";
+toolContainer.style.justifyContent = "center";
+toolContainer.style.alignItems = "center";
+toolContainer.append(
+  thinPenButton,
+  thickPenButton,
+);
+
 const canvasContainer = document.createElement("div");
 canvasContainer.style.display = "flex";
 canvasContainer.style.flexDirection = "row";
@@ -211,4 +240,4 @@ buttonContainer.append(
   clearButton,
 );
 
-app.append(title, message, canvasContainer, buttonContainer);
+app.append(title, message, toolContainer, canvasContainer, buttonContainer);
