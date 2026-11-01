@@ -8,6 +8,8 @@ document.body.style.background = "#edf9ff";
 const canvasWidth = 500;
 const canvasHeight = 500; //plan on making this change depending on if in full strip or frame mode
 let penSize = 3;
+let currentTool: "pen" | "sticker" = "pen";
+let selectedSticker = "😂";
 
 const title = document.createElement("h1");
 title.textContent = "Comic Strip Generator";
@@ -20,6 +22,15 @@ thickPenButton.textContent = "Thick Pen";
 
 const thinPenButton = document.createElement("button");
 thinPenButton.textContent = "Thin Pen";
+
+const laughStickerButton = document.createElement("button");
+laughStickerButton.textContent = "😂";
+
+const cryStickerButton = document.createElement("button");
+cryStickerButton.textContent = "😭";
+
+const basketballStickerButton = document.createElement("button");
+basketballStickerButton.textContent = "🏀";
 
 const undoButton = document.createElement("button");
 undoButton.textContent = "Undo";
@@ -86,6 +97,27 @@ class StrokeCommand implements DrawableCommand {
   }
 }
 
+class StickerCommand implements DrawableCommand {
+  x: number;
+  y: number;
+  sticker: string;
+
+  constructor(x: number, y: number, sticker: string) {
+    this.x = x;
+    this.y = y;
+    this.sticker = sticker;
+  }
+
+  display(targetCtx: CanvasRenderingContext2D): void {
+    targetCtx.save();
+    targetCtx.font = "40px sans-serif";
+    targetCtx.textAlign = "center";
+    targetCtx.textBaseline = "middle";
+    targetCtx.fillText(this.sticker, this.x, this.y);
+    targetCtx.restore();
+  }
+}
+
 interface CursorState {
   x: number;
   y: number;
@@ -126,6 +158,23 @@ function redraw(): void {
 canvas.addEventListener("mousedown", (mouse) => {
   cursorState.x = mouse.offsetX;
   cursorState.y = mouse.offsetY;
+
+  if (currentTool === "sticker") {
+    const sticker = new StickerCommand(
+      cursorState.x,
+      cursorState.y,
+      selectedSticker,
+    );
+
+    drawingState.commands.push(sticker);
+    drawingState.redoCommands.length = 0;
+
+    message.textContent = `Commited actions: ${drawingState.commands.length}`;
+
+    redraw();
+    return;
+  }
+
   cursorState.isDown = true;
   activeStroke = new StrokeCommand(
     { x: cursorState.x, y: cursorState.y },
@@ -200,10 +249,27 @@ clearButton.addEventListener("click", () => {
 
 thinPenButton.addEventListener("click", () => {
   penSize = 3;
+  currentTool = "pen";
 });
 
 thickPenButton.addEventListener("click", () => {
   penSize = 10;
+  currentTool = "pen";
+});
+
+laughStickerButton.addEventListener("click", () => {
+  currentTool = "sticker";
+  selectedSticker = "😂";
+});
+
+cryStickerButton.addEventListener("click", () => {
+  currentTool = "sticker";
+  selectedSticker = "😭";
+});
+
+basketballStickerButton.addEventListener("click", () => {
+  currentTool = "sticker";
+  selectedSticker = "🏀";
 });
 
 const toolContainer = document.createElement("div");
@@ -216,6 +282,9 @@ toolContainer.style.alignItems = "center";
 toolContainer.append(
   thinPenButton,
   thickPenButton,
+  laughStickerButton,
+  cryStickerButton,
+  basketballStickerButton,
 );
 
 const canvasContainer = document.createElement("div");
