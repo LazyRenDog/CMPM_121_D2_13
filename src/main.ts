@@ -55,6 +55,7 @@ const comicStripTemplates: ComicStripTemplate[] = [
   },
 ];
 
+let customStripCounter = 1;
 let penSize = 3;
 let currentTool: "pen" | "sticker" = "pen";
 let selectedSticker = "😂";
@@ -190,9 +191,9 @@ const ctx = canvas.getContext("2d")!;
 const leftStripSidebar = document.createElement("div");
 leftStripSidebar.style.display = "flex";
 leftStripSidebar.style.flexDirection = "column";
-leftStripSidebar.style.gap = "8px";
+leftStripSidebar.style.gap = "10px";
 leftStripSidebar.style.padding = "12px";
-leftStripSidebar.style.width = "220px";
+leftStripSidebar.style.width = "230px";
 leftStripSidebar.style.background = "#ffffff";
 leftStripSidebar.style.border = "2px solid #1d3557";
 leftStripSidebar.style.borderRadius = "8px";
@@ -200,7 +201,7 @@ leftStripSidebar.style.textAlign = "left";
 
 const sidebarHeader = document.createElement("h3");
 sidebarHeader.textContent = "Comic Strip Sizes";
-sidebarHeader.style.margin = "0 0 6px 0";
+sidebarHeader.style.margin = "0";
 sidebarHeader.style.fontSize = "16px";
 
 const stripListContainer = document.createElement("div");
@@ -208,7 +209,85 @@ stripListContainer.style.display = "flex";
 stripListContainer.style.flexDirection = "column";
 stripListContainer.style.gap = "6px";
 
-leftStripSidebar.append(sidebarHeader, stripListContainer);
+const customStripSection = document.createElement("div");
+customStripSection.style.display = "flex";
+customStripSection.style.flexDirection = "column";
+customStripSection.style.gap = "6px";
+customStripSection.style.borderTop = "1px solid #cccccc";
+customStripSection.style.paddingTop = "10px";
+
+const customStripTitle = document.createElement("strong");
+customStripTitle.textContent = "Custom Comic Strip";
+customStripTitle.style.fontSize = "14px";
+
+const customNameInput = document.createElement("input");
+customNameInput.type = "text";
+customNameInput.placeholder = "Strip Name (e.g. Manga Page)";
+customNameInput.style.padding = "4px";
+
+const sizeRow = document.createElement("div");
+sizeRow.style.display = "flex";
+sizeRow.style.gap = "6px";
+
+const customWidthInput = document.createElement("input");
+customWidthInput.type = "number";
+customWidthInput.min = "200";
+customWidthInput.max = "1200";
+customWidthInput.value = "600";
+customWidthInput.title = "Width (px)";
+customWidthInput.style.width = "50%";
+customWidthInput.style.padding = "4px";
+
+const customHeightInput = document.createElement("input");
+customHeightInput.type = "number";
+customHeightInput.min = "200";
+customHeightInput.max = "1200";
+customHeightInput.value = "400";
+customHeightInput.title = "Height (px)";
+customHeightInput.style.width = "50%";
+customHeightInput.style.padding = "4px";
+
+sizeRow.append(customWidthInput, customHeightInput);
+
+const gridRow = document.createElement("div");
+gridRow.style.display = "flex";
+gridRow.style.gap = "6px";
+
+const customRowsInput = document.createElement("input");
+customRowsInput.type = "number";
+customRowsInput.min = "1";
+customRowsInput.max = "6";
+customRowsInput.value = "2";
+customRowsInput.title = "Panel Rows";
+customRowsInput.style.width = "50%";
+customRowsInput.style.padding = "4px";
+
+const customColsInput = document.createElement("input");
+customColsInput.type = "number";
+customColsInput.min = "1";
+customColsInput.max = "6";
+customColsInput.value = "3";
+customColsInput.title = "Panel Columns";
+customColsInput.style.width = "50%";
+customColsInput.style.padding = "4px";
+
+gridRow.append(customRowsInput, customColsInput);
+
+const createCustomStripButton = document.createElement("button");
+createCustomStripButton.textContent = "+ Add Custom Strip";
+createCustomStripButton.style.padding = "6px";
+createCustomStripButton.style.cursor = "pointer";
+createCustomStripButton.style.fontWeight = "bold";
+
+customStripSection.append(
+  customStripTitle,
+  customNameInput,
+  sizeRow,
+  gridRow,
+  createCustomStripButton,
+);
+
+leftStripSidebar.append(sidebarHeader, stripListContainer, customStripSection);
 
 let activeStroke: StrokeCommand | null = null;
 
@@ -242,6 +321,16 @@ function drawComicStripFrames(
   targetCtx.restore();
 }
 
+function selectComicStrip(template: ComicStripTemplate): void {
+  drawingState.strip = template;
+  canvas.width = template.width;
+  canvas.height = template.height;
+  renderStripSidebar();
+  notifyChange();
+  message.textContent =
+    `Selected strip: ${template.name} (${template.rows}×${template.cols} panels)`;
+}
+
 function renderStripSidebar(): void {
   stripListContainer.replaceChildren();
   for (const template of comicStripTemplates) {
@@ -261,17 +350,45 @@ function renderStripSidebar(): void {
       : "1px solid #cccccc";
     btn.style.borderRadius = "4px";
 
-    btn.addEventListener("click", () => {
-      drawingState.strip = template;
-      canvas.width = template.width;
-      canvas.height = template.height;
-      renderStripSidebar();
-      notifyChange();
-      message.textContent = `Selected strip: ${template.name}`;
-    });
+    btn.addEventListener("click", () => selectComicStrip(template));
     stripListContainer.appendChild(btn);
   }
 }
+
+createCustomStripButton.addEventListener("click", () => {
+  const width = Math.round(Number(customWidthInput.value));
+  const height = Math.round(Number(customHeightInput.value));
+  const rows = Math.round(Number(customRowsInput.value));
+  const cols = Math.round(Number(customColsInput.value));
+
+  if (
+    !Number.isFinite(width) || !Number.isFinite(height) ||
+    width < 200 || width > 1200 || height < 200 || height > 1200 ||
+    rows < 1 || rows > 6 || cols < 1 || cols > 6
+  ) {
+    message.textContent =
+      "Invalid custom strip size (use 200–1200px and 1–6 rows/cols).";
+    return;
+  }
+
+  const rawName = customNameInput.value.trim();
+  const label = rawName.length > 0
+    ? `${rawName} (${width}×${height})`
+    : `Custom Strip #${customStripCounter} (${width}×${height})`;
+
+  const newTemplate: ComicStripTemplate = {
+    id: `custom-strip-${customStripCounter++}`,
+    name: label,
+    width,
+    height,
+    rows,
+    cols,
+  };
+
+  comicStripTemplates.push(newTemplate);
+  customNameInput.value = "";
+  selectComicStrip(newTemplate);
+});
 
 function renderScene(): void {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
