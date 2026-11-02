@@ -195,6 +195,52 @@ function renderStickerTools(): void {
 
 renderStickerTools();
 
+const stickerNameInput = document.createElement("input");
+stickerNameInput.placeholder = "Name your sticker";
+
+const stickerContentInput = document.createElement("input");
+stickerContentInput.placeholder = "Add emoji / short text";
+
+const addStickerButton = document.createElement("button");
+addStickerButton.textContent = "Add Sticker";
+
+const customStickerContainer = document.createElement("div");
+
+customStickerContainer.style.display = "flex";
+customStickerContainer.style.gap = "8px";
+customStickerContainer.style.justifyContent = "center";
+customStickerContainer.style.marginBottom = "16px";
+
+customStickerContainer.append(
+  stickerNameInput,
+  stickerContentInput,
+  addStickerButton,
+);
+
+addStickerButton.addEventListener("click", () => {
+  const name = stickerNameInput.value.trim();
+  const content = stickerContentInput.value.trim();
+
+  if (name === "" || content === "") {
+    message.textContent = "Please enter a sticker name and content.";
+    return;
+  }
+
+  const newSticker: StickerTool = {
+    id: `custom-${Date.now()}`,
+    name: name,
+    content: content,
+  };
+
+  stickerTools.push(newSticker);
+  renderStickerTools();
+
+  stickerNameInput.value = "";
+  stickerContentInput.value = "";
+
+  message.textContent = `Created sticker: ${name}`;
+});
+
 canvas.addEventListener("mousedown", (mouse) => {
   cursorState.x = mouse.offsetX;
   cursorState.y = mouse.offsetY;
@@ -319,6 +365,13 @@ buttonContainer.append(
   clearButton,
 );
 
-app.append(title, message, toolContainer, canvasContainer, buttonContainer);
+app.append(
+  title,
+  message,
+  toolContainer,
+  customStickerContainer,
+  canvasContainer,
+  buttonContainer,
+);
 
 redraw();
