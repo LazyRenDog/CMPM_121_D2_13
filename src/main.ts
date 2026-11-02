@@ -577,6 +577,67 @@ function drawComicStripFrames(
   targetCtx.restore();
 }
 
+function renderCommittedDocument(targetCtx: CanvasRenderingContext2D): void {
+  drawComicStripFrames(targetCtx, drawingState.strip);
+  for (const cmd of drawingState.commands) {
+    cmd.display(targetCtx);
+  }
+}
+
+function renderCommittedComicToBlob(
+  scaleFactor: number,
+  mimeType: string,
+): Promise<{ blob: Blob; width: number; height: number }> {
+  return new Promise((resolve, reject) => {
+    const offscreen = document.createElement("canvas");
+    offscreen.width = drawingState.strip.width * scaleFactor;
+    offscreen.height = drawingState.strip.height * scaleFactor;
+
+    const exportCtx = offscreen.getContext("2d")!;
+    exportCtx.save();
+    exportCtx.scale(scaleFactor, scaleFactor);
+    renderCommittedDocument(exportCtx);
+    exportCtx.restore();
+
+    offscreen.toBlob((blob) => {
+      if (!blob) {
+        reject(new Error("Failed to generate image blob"));
+        return;
+      }
+      resolve({
+        blob,
+        width: offscreen.width,
+        height: offscreen.height,
+      });
+    }, mimeType);
+  });
+}
+
+saveToPcButton.addEventListener("click", async () => {
+  const chosenType = exportTypes.find((t) =>
+    t.ext === exportTypeSelect.value
+  ) ??
+    exportTypes[0];
+  const scaleFactor = Number(exportResolutionSelect.value) || 2;
+  const baseName = exportFileNameInput.value.trim() || "my-comic-strip";
+  const fileName = `${baseName}-${scaleFactor}x.${chosenType.ext}`;
+
+  const { blob, width, height } = await renderCommittedComicToBlob(
+    scaleFactor,
+    chosenType.mime,
+  );
+
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = fileName;
+  link.click();
+  URL.revokeObjectURL(url);
+
+  exportDropdownMenu.style.display = "none";
+  message.textContent = `Exported ${fileName} (${width}×${height} px)`;
+});
+
 function selectComicStrip(template: ComicStripTemplate): void {
   drawingState.strip = template;
   canvas.width = template.width;
@@ -649,10 +710,7 @@ createCustomStripButton.addEventListener("click", () => {
 
 function renderScene(): void {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
-  drawComicStripFrames(ctx, drawingState.strip);
-  for (const cmd of drawingState.commands) {
-    cmd.display(ctx);
-  }
+  renderCommittedDocument(ctx);
   if (activeCommand) {
     activeCommand.display(ctx);
   }
