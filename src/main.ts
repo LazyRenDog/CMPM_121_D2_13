@@ -1,5 +1,3 @@
-// import { clear } from "node:console";
-
 const app = document.querySelector<HTMLElement>("#app")!;
 app.style.textAlign = "center";
 app.style.fontFamily = "sans-serif";
@@ -57,7 +55,6 @@ const comicStripTemplates: ComicStripTemplate[] = [
   },
 ];
 
-let activeStrip: ComicStripTemplate = comicStripTemplates[0];
 let penSize = 3;
 let currentTool: "pen" | "sticker" = "pen";
 let selectedSticker = "😂";
@@ -91,36 +88,6 @@ redoButton.textContent = "Redo";
 
 const clearButton = document.createElement("button");
 clearButton.textContent = "Clear Comic";
-
-const canvas = document.createElement("canvas");
-canvas.width = activeStrip.width;
-canvas.height = activeStrip.height;
-canvas.style.border = "2px solid black";
-canvas.style.background = "#ffffff";
-canvas.style.cursor = "crosshair";
-
-const ctx = canvas.getContext("2d")!;
-
-const leftStripSidebar = document.createElement("div");
-leftStripSidebar.style.display = "flex";
-leftStripSidebar.style.flexDirection = "column";
-leftStripSidebar.style.gap = "8px";
-leftStripSidebar.style.padding = "12px";
-leftStripSidebar.style.width = "210px";
-leftStripSidebar.style.background = "#ffffff";
-leftStripSidebar.style.border = "2px solid #1d3557";
-leftStripSidebar.style.borderRadius = "8px";
-leftStripSidebar.style.textAlign = "left";
-
-const sidebarHeader = document.createElement("h3");
-sidebarHeader.textContent = "Comic Strip Sizes";
-sidebarHeader.style.margin = "0 0 6px 0";
-sidebarHeader.style.fontSize = "16px";
-
-const stripListContainer = document.createElement("div");
-stripListContainer.style.display = "flex";
-stripListContainer.style.flexDirection = "column";
-stripListContainer.style.gap = "6px";
 
 interface Point {
   x: number;
@@ -194,11 +161,13 @@ interface CursorState {
 }
 
 interface DrawingState {
+  strip: ComicStripTemplate;
   commands: DrawableCommand[];
   redoCommands: DrawableCommand[];
 }
 
 const drawingState: DrawingState = {
+  strip: comicStripTemplates[0],
   commands: [],
   redoCommands: [],
 };
@@ -209,7 +178,69 @@ const cursorState: CursorState = {
   isDown: false,
 };
 
+const canvas = document.createElement("canvas");
+canvas.width = drawingState.strip.width;
+canvas.height = drawingState.strip.height;
+canvas.style.border = "2px solid black";
+canvas.style.background = "#ffffff";
+canvas.style.cursor = "crosshair";
+
+const ctx = canvas.getContext("2d")!;
+
+const leftStripSidebar = document.createElement("div");
+leftStripSidebar.style.display = "flex";
+leftStripSidebar.style.flexDirection = "column";
+leftStripSidebar.style.gap = "8px";
+leftStripSidebar.style.padding = "12px";
+leftStripSidebar.style.width = "220px";
+leftStripSidebar.style.background = "#ffffff";
+leftStripSidebar.style.border = "2px solid #1d3557";
+leftStripSidebar.style.borderRadius = "8px";
+leftStripSidebar.style.textAlign = "left";
+
+const sidebarHeader = document.createElement("h3");
+sidebarHeader.textContent = "Comic Strip Sizes";
+sidebarHeader.style.margin = "0 0 6px 0";
+sidebarHeader.style.fontSize = "16px";
+
+const stripListContainer = document.createElement("div");
+stripListContainer.style.display = "flex";
+stripListContainer.style.flexDirection = "column";
+stripListContainer.style.gap = "6px";
+
+leftStripSidebar.append(sidebarHeader, stripListContainer);
+
 let activeStroke: StrokeCommand | null = null;
+
+function drawComicStripFrames(
+  targetCtx: CanvasRenderingContext2D,
+  strip: ComicStripTemplate,
+): void {
+  targetCtx.save();
+  targetCtx.fillStyle = "#ffffff";
+  targetCtx.fillRect(0, 0, strip.width, strip.height);
+
+  const gutter = 12;
+  const totalGutterW = gutter * (strip.cols + 1);
+  const totalGutterH = gutter * (strip.rows + 1);
+  const panelW = (strip.width - totalGutterW) / strip.cols;
+  const panelH = (strip.height - totalGutterH) / strip.rows;
+
+  for (let r = 0; r < strip.rows; r++) {
+    for (let c = 0; c < strip.cols; c++) {
+      const px = gutter + c * (panelW + gutter);
+      const py = gutter + r * (panelH + gutter);
+
+      targetCtx.fillStyle = "#f8fdff";
+      targetCtx.fillRect(px, py, panelW, panelH);
+
+      targetCtx.lineWidth = 3;
+      targetCtx.strokeStyle = "#111111";
+      targetCtx.strokeRect(px, py, panelW, panelH);
+    }
+  }
+  targetCtx.restore();
+}
 
 function renderStripSidebar(): void {
   stripListContainer.replaceChildren();
@@ -219,17 +250,19 @@ function renderStripSidebar(): void {
     btn.style.padding = "6px 8px";
     btn.style.textAlign = "left";
     btn.style.cursor = "pointer";
-    btn.style.fontWeight = activeStrip.id === template.id ? "bold" : "normal";
-    btn.style.background = activeStrip.id === template.id
+    btn.style.fontWeight = drawingState.strip.id === template.id
+      ? "bold"
+      : "normal";
+    btn.style.background = drawingState.strip.id === template.id
       ? "#dceefb"
       : "#f8f9fa";
-    btn.style.border = activeStrip.id === template.id
+    btn.style.border = drawingState.strip.id === template.id
       ? "2px solid #1d3557"
       : "1px solid #cccccc";
     btn.style.borderRadius = "4px";
 
     btn.addEventListener("click", () => {
-      activeStrip = template;
+      drawingState.strip = template;
       canvas.width = template.width;
       canvas.height = template.height;
       renderStripSidebar();
@@ -242,6 +275,7 @@ function renderStripSidebar(): void {
 
 function renderScene(): void {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
+  drawComicStripFrames(ctx, drawingState.strip);
   for (const cmd of drawingState.commands) {
     cmd.display(ctx);
   }
@@ -274,8 +308,7 @@ canvas.addEventListener("mousedown", (mouse) => {
     drawingState.commands.push(sticker);
     drawingState.redoCommands.length = 0;
 
-    message.textContent = `Commited actions: ${drawingState.commands.length}`;
-
+    message.textContent = `Committed actions: ${drawingState.commands.length}`;
     notifyChange();
     return;
   }
@@ -304,7 +337,7 @@ function finishStroke(): void {
   if (cursorState.isDown && activeStroke) {
     drawingState.commands.push(activeStroke);
     drawingState.redoCommands.length = 0;
-    message.textContent = `Commited actions: ${drawingState.commands.length}`;
+    message.textContent = `Committed actions: ${drawingState.commands.length}`;
   }
   cursorState.isDown = false;
   activeStroke = null;
@@ -314,7 +347,6 @@ function finishStroke(): void {
 canvas.addEventListener("mouseout", finishStroke);
 canvas.addEventListener("mouseup", finishStroke);
 
-//undo
 undoButton.addEventListener("click", () => {
   if (drawingState.commands.length === 0) return;
   const lastCommand = drawingState.commands.pop();
@@ -322,19 +354,17 @@ undoButton.addEventListener("click", () => {
     drawingState.redoCommands.push(lastCommand);
   }
   notifyChange();
-  message.textContent = `Commited actions: ${drawingState.commands.length}`;
+  message.textContent = `Committed actions: ${drawingState.commands.length}`;
 });
 
-//redo
 redoButton.addEventListener("click", () => {
   if (drawingState.redoCommands.length === 0) return;
   const undoneCommand = drawingState.redoCommands.pop();
   if (undoneCommand) {
     drawingState.commands.push(undoneCommand);
   }
-
   notifyChange();
-  message.textContent = `Commited actions: ${drawingState.commands.length}`;
+  message.textContent = `Committed actions: ${drawingState.commands.length}`;
 });
 
 clearButton.addEventListener("click", () => {
@@ -388,9 +418,9 @@ toolContainer.append(
 const canvasContainer = document.createElement("div");
 canvasContainer.style.display = "flex";
 canvasContainer.style.flexDirection = "row";
-canvasContainer.style.gap = "16px";
+canvasContainer.style.gap = "20px";
 canvasContainer.style.justifyContent = "center";
-canvasContainer.style.alignItems = "center";
+canvasContainer.style.alignItems = "flex-start";
 canvasContainer.append(leftStripSidebar, canvas);
 
 const buttonContainer = document.createElement("div");
