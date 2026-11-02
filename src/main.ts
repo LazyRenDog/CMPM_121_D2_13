@@ -826,7 +826,7 @@ canvas.addEventListener("mousedown", (mouse) => {
     activeCommand = new StickerCommand(
       cursorState.x,
       cursorState.y,
-      selectedSticker,
+      selectedStickerTool.content,
     );
   } else {
     activeCommand = new StrokeCommand(
