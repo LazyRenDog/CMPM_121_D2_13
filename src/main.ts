@@ -40,6 +40,26 @@ interface ExportResolutionOption {
   label: string;
 }
 
+interface WritableFileStreamLike {
+  write(data: Blob): Promise<void>;
+  close(): Promise<void>;
+}
+
+interface FileHandleLike {
+  name: string;
+  createWritable(): Promise<WritableFileStreamLike>;
+}
+
+interface SavePickerWindow {
+  showSaveFilePicker?: (options: {
+    suggestedName: string;
+    types: Array<{
+      description: string;
+      accept: Record<string, string[]>;
+    }>;
+  }) => Promise<FileHandleLike>;
+}
+
 const comicStripTemplates: ComicStripTemplate[] = [
   {
     id: "single-500",
@@ -359,7 +379,7 @@ exportDropdownMenu.style.display = "none";
 exportDropdownMenu.style.position = "absolute";
 exportDropdownMenu.style.bottom = "110%";
 exportDropdownMenu.style.left = "0";
-exportDropdownMenu.style.minWidth = "260px";
+exportDropdownMenu.style.minWidth = "275px";
 exportDropdownMenu.style.padding = "12px";
 exportDropdownMenu.style.background = "#ffffff";
 exportDropdownMenu.style.border = "2px solid #1d3557";
@@ -369,7 +389,7 @@ exportDropdownMenu.style.textAlign = "left";
 exportDropdownMenu.style.zIndex = "10";
 
 const exportTypeLabel = document.createElement("label");
-exportTypeLabel.textContent = "Export Type:";
+exportTypeLabel.textContent = "1. Export Type:";
 exportTypeLabel.style.display = "block";
 exportTypeLabel.style.fontSize = "13px";
 exportTypeLabel.style.fontWeight = "bold";
@@ -387,7 +407,7 @@ for (const fmt of exportTypes) {
 }
 
 const exportResolutionLabel = document.createElement("label");
-exportResolutionLabel.textContent = "Resolution:";
+exportResolutionLabel.textContent = "2. Resolution:";
 exportResolutionLabel.style.display = "block";
 exportResolutionLabel.style.fontSize = "13px";
 exportResolutionLabel.style.fontWeight = "bold";
@@ -412,23 +432,39 @@ function updateResolutionOptions(): void {
   exportResolutionSelect.value = currentVal;
 }
 
-const exportFileNameLabel = document.createElement("label");
-exportFileNameLabel.textContent = "File Name & PC Location:";
-exportFileNameLabel.style.display = "block";
-exportFileNameLabel.style.fontSize = "13px";
-exportFileNameLabel.style.fontWeight = "bold";
-exportFileNameLabel.style.marginBottom = "4px";
+const exportLocationLabel = document.createElement("label");
+exportLocationLabel.textContent = "3. Location on PC:";
+exportLocationLabel.style.display = "block";
+exportLocationLabel.style.fontSize = "13px";
+exportLocationLabel.style.fontWeight = "bold";
+exportLocationLabel.style.marginBottom = "4px";
+
+const exportLocationSelect = document.createElement("select");
+exportLocationSelect.style.width = "100%";
+exportLocationSelect.style.padding = "4px";
+exportLocationSelect.style.marginBottom = "8px";
+
+const pickerModeOption = document.createElement("option");
+pickerModeOption.value = "picker";
+pickerModeOption.textContent = "Browse PC Folder (Save As Dialog)";
+
+const downloadsModeOption = document.createElement("option");
+downloadsModeOption.value = "downloads";
+downloadsModeOption.textContent = "Default PC Downloads Folder";
+
+exportLocationSelect.append(pickerModeOption, downloadsModeOption);
 
 const exportFileNameInput = document.createElement("input");
 exportFileNameInput.type = "text";
 exportFileNameInput.value = "my-comic-strip";
+exportFileNameInput.placeholder = "File name";
 exportFileNameInput.style.width = "100%";
 exportFileNameInput.style.boxSizing = "border-box";
 exportFileNameInput.style.padding = "4px";
 exportFileNameInput.style.marginBottom = "10px";
 
 const saveToPcButton = document.createElement("button");
-saveToPcButton.textContent = "Choose Location on PC & Save...";
+saveToPcButton.textContent = "Export & Save to PC";
 saveToPcButton.style.width = "100%";
 saveToPcButton.style.padding = "8px";
 saveToPcButton.style.cursor = "pointer";
@@ -443,19 +479,29 @@ exportDropdownMenu.append(
   exportTypeSelect,
   exportResolutionLabel,
   exportResolutionSelect,
-  exportFileNameLabel,
+  exportLocationLabel,
+  exportLocationSelect,
   exportFileNameInput,
   saveToPcButton,
 );
 
 exportDropdownWrapper.append(exportMenuToggleButton, exportDropdownMenu);
 
-exportMenuToggleButton.addEventListener("click", () => {
+exportMenuToggleButton.addEventListener("click", (e) => {
+  e.stopPropagation();
   const isOpen = exportDropdownMenu.style.display === "block";
   if (!isOpen) {
     updateResolutionOptions();
   }
   exportDropdownMenu.style.display = isOpen ? "none" : "block";
+});
+
+exportDropdownMenu.addEventListener("click", (e) => {
+  e.stopPropagation();
+});
+
+document.addEventListener("click", () => {
+  exportDropdownMenu.style.display = "none";
 });
 
 const toolContainer = document.createElement("div");
@@ -613,6 +659,45 @@ function renderCommittedComicToBlob(
   });
 }
 
+async function saveBlobWithPcLocationPicker(
+  blob: Blob,
+  suggestedName: string,
+  chosenType: ExportTypeOption,
+  useFolderPicker: boolean,
+): Promise<string | null> {
+  const pickerWin = globalThis as unknown as SavePickerWindow;
+
+  if (useFolderPicker && typeof pickerWin.showSaveFilePicker === "function") {
+    try {
+      const handle = await pickerWin.showSaveFilePicker({
+        suggestedName,
+        types: [
+          {
+            description: chosenType.label,
+            accept: { [chosenType.mime]: [`.${chosenType.ext}`] },
+          },
+        ],
+      });
+      const writable = await handle.createWritable();
+      await writable.write(blob);
+      await writable.close();
+      return handle.name;
+    } catch (err) {
+      if (err instanceof DOMException && err.name === "AbortError") {
+        return null;
+      }
+    }
+  }
+
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = suggestedName;
+  link.click();
+  URL.revokeObjectURL(url);
+  return suggestedName;
+}
+
 saveToPcButton.addEventListener("click", async () => {
   const chosenType = exportTypes.find((t) =>
     t.ext === exportTypeSelect.value
@@ -621,21 +706,27 @@ saveToPcButton.addEventListener("click", async () => {
   const scaleFactor = Number(exportResolutionSelect.value) || 2;
   const baseName = exportFileNameInput.value.trim() || "my-comic-strip";
   const fileName = `${baseName}-${scaleFactor}x.${chosenType.ext}`;
+  const useFolderPicker = exportLocationSelect.value === "picker";
 
   const { blob, width, height } = await renderCommittedComicToBlob(
     scaleFactor,
     chosenType.mime,
   );
 
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = fileName;
-  link.click();
-  URL.revokeObjectURL(url);
+  const savedName = await saveBlobWithPcLocationPicker(
+    blob,
+    fileName,
+    chosenType,
+    useFolderPicker,
+  );
 
   exportDropdownMenu.style.display = "none";
-  message.textContent = `Exported ${fileName} (${width}×${height} px)`;
+  if (savedName === null) {
+    message.textContent = "Export save dialog cancelled.";
+  } else {
+    message.textContent =
+      `Saved ${savedName} (${width}×${height} px, ${chosenType.label})`;
+  }
 });
 
 function selectComicStrip(template: ComicStripTemplate): void {
