@@ -24,6 +24,11 @@ interface StickerTool {
   sticker: string;
 }
 
+interface ColorSwatch {
+  name: string;
+  hex: string;
+}
+
 const comicStripTemplates: ComicStripTemplate[] = [
   {
     id: "single-500",
@@ -78,9 +83,18 @@ const stickerTools: StickerTool[] = [
   { id: "basketball", label: "🏀", sticker: "🏀" },
 ];
 
+const colorPalette: ColorSwatch[] = [
+  { name: "Ink Black", hex: "#111111" },
+  { name: "Hero Red", hex: "#e63946" },
+  { name: "Comic Blue", hex: "#1d3557" },
+  { name: "Action Gold", hex: "#ffb703" },
+  { name: "Emerald Green", hex: "#2a9d8f" },
+];
+
 let customStripCounter = 1;
 let customStickerCounter = 1;
 let penSize = penPresets[0].width;
+let selectedColor = colorPalette[0].hex;
 let currentTool: "pen" | "sticker" = "pen";
 let selectedSticker = stickerTools[0].sticker;
 
@@ -111,10 +125,12 @@ interface DrawableCommand {
 class StrokeCommand implements DrawableCommand {
   points: Point[];
   penWidth: number;
+  color: string;
 
-  constructor(startPoint: Point, width: number) {
+  constructor(startPoint: Point, width: number, color: string) {
     this.points = [startPoint];
     this.penWidth = width;
+    this.color = color;
   }
 
   addPoint(pt: Point): void {
@@ -126,7 +142,7 @@ class StrokeCommand implements DrawableCommand {
     targetCtx.save();
     targetCtx.lineCap = "round";
     targetCtx.lineJoin = "round";
-    targetCtx.strokeStyle = "#111111";
+    targetCtx.strokeStyle = this.color;
     targetCtx.lineWidth = this.penWidth;
     targetCtx.beginPath();
     targetCtx.moveTo(this.points[0].x, this.points[0].y);
@@ -332,6 +348,26 @@ function renderToolButtons(): void {
     toolContainer.appendChild(btn);
   }
 
+  for (const swatch of colorPalette) {
+    const swatchBtn = document.createElement("button");
+    swatchBtn.title = swatch.name;
+    swatchBtn.style.width = "26px";
+    swatchBtn.style.height = "26px";
+    swatchBtn.style.borderRadius = "50%";
+    swatchBtn.style.background = swatch.hex;
+    swatchBtn.style.cursor = "pointer";
+    swatchBtn.style.border = selectedColor === swatch.hex
+      ? "3px solid #000000"
+      : "1px solid #888888";
+    swatchBtn.addEventListener("click", () => {
+      selectedColor = swatch.hex;
+      currentTool = "pen";
+      renderToolButtons();
+      message.textContent = `Selected ink color: ${swatch.name}`;
+    });
+    toolContainer.appendChild(swatchBtn);
+  }
+
   for (const item of stickerTools) {
     const btn = document.createElement("button");
     const isActive = currentTool === "sticker" &&
@@ -507,6 +543,7 @@ canvas.addEventListener("mousedown", (mouse) => {
     activeCommand = new StrokeCommand(
       { x: cursorState.x, y: cursorState.y },
       penSize,
+      selectedColor,
     );
   }
   notifyChange();
