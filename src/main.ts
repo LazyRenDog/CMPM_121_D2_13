@@ -5,8 +5,59 @@ app.style.textAlign = "center";
 app.style.fontFamily = "sans-serif";
 document.body.style.background = "#edf9ff";
 
-const canvasWidth = 500;
-const canvasHeight = 500; //plan on making this change depending on if in full strip or frame mode
+interface ComicStripTemplate {
+  id: string;
+  name: string;
+  width: number;
+  height: number;
+  rows: number;
+  cols: number;
+}
+
+const comicStripTemplates: ComicStripTemplate[] = [
+  {
+    id: "single-500",
+    name: "Single Frame (500×500)",
+    width: 500,
+    height: 500,
+    rows: 1,
+    cols: 1,
+  },
+  {
+    id: "strip-3",
+    name: "3-Panel Strip (750×280)",
+    width: 750,
+    height: 280,
+    rows: 1,
+    cols: 3,
+  },
+  {
+    id: "grid-4",
+    name: "4-Panel Grid (520×520)",
+    width: 520,
+    height: 520,
+    rows: 2,
+    cols: 2,
+  },
+  {
+    id: "vertical-3",
+    name: "Vertical Strip (360×680)",
+    width: 360,
+    height: 680,
+    rows: 3,
+    cols: 1,
+  },
+  {
+    id: "wide-2",
+    name: "Dual Widescreen (800×340)",
+    width: 800,
+    height: 340,
+    rows: 1,
+    cols: 2,
+  },
+];
+
+let activeStrip: ComicStripTemplate = comicStripTemplates[0];
 let penSize = 3;
 let currentTool: "pen" | "sticker" = "pen";
 let selectedSticker = "😂";
@@ -42,13 +93,34 @@ const clearButton = document.createElement("button");
 clearButton.textContent = "Clear Comic";
 
 const canvas = document.createElement("canvas");
-canvas.width = canvasWidth;
-canvas.height = canvasHeight;
+canvas.width = activeStrip.width;
+canvas.height = activeStrip.height;
 canvas.style.border = "2px solid black";
 canvas.style.background = "#ffffff";
 canvas.style.cursor = "crosshair";
 
 const ctx = canvas.getContext("2d")!;
+
+const leftStripSidebar = document.createElement("div");
+leftStripSidebar.style.display = "flex";
+leftStripSidebar.style.flexDirection = "column";
+leftStripSidebar.style.gap = "8px";
+leftStripSidebar.style.padding = "12px";
+leftStripSidebar.style.width = "210px";
+leftStripSidebar.style.background = "#ffffff";
+leftStripSidebar.style.border = "2px solid #1d3557";
+leftStripSidebar.style.borderRadius = "8px";
+leftStripSidebar.style.textAlign = "left";
+
+const sidebarHeader = document.createElement("h3");
+sidebarHeader.textContent = "Comic Strip Sizes";
+sidebarHeader.style.margin = "0 0 6px 0";
+sidebarHeader.style.fontSize = "16px";
+
+const stripListContainer = document.createElement("div");
+stripListContainer.style.display = "flex";
+stripListContainer.style.flexDirection = "column";
+stripListContainer.style.gap = "6px";
 
 interface Point {
   x: number;
@@ -138,6 +210,35 @@ const cursorState: CursorState = {
 };
 
 let activeStroke: StrokeCommand | null = null;
+
+function renderStripSidebar(): void {
+  stripListContainer.replaceChildren();
+  for (const template of comicStripTemplates) {
+    const btn = document.createElement("button");
+    btn.textContent = `${template.name} [${template.rows}×${template.cols}]`;
+    btn.style.padding = "6px 8px";
+    btn.style.textAlign = "left";
+    btn.style.cursor = "pointer";
+    btn.style.fontWeight = activeStrip.id === template.id ? "bold" : "normal";
+    btn.style.background = activeStrip.id === template.id
+      ? "#dceefb"
+      : "#f8f9fa";
+    btn.style.border = activeStrip.id === template.id
+      ? "2px solid #1d3557"
+      : "1px solid #cccccc";
+    btn.style.borderRadius = "4px";
+
+    btn.addEventListener("click", () => {
+      activeStrip = template;
+      canvas.width = template.width;
+      canvas.height = template.height;
+      renderStripSidebar();
+      notifyChange();
+      message.textContent = `Selected strip: ${template.name}`;
+    });
+    stripListContainer.appendChild(btn);
+  }
+}
 
 function renderScene(): void {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -290,7 +391,7 @@ canvasContainer.style.flexDirection = "row";
 canvasContainer.style.gap = "16px";
 canvasContainer.style.justifyContent = "center";
 canvasContainer.style.alignItems = "center";
-canvasContainer.appendChild(canvas);
+canvasContainer.append(leftStripSidebar, canvas);
 
 const buttonContainer = document.createElement("div");
 buttonContainer.style.display = "flex";
@@ -306,4 +407,5 @@ buttonContainer.append(
 );
 
 app.append(title, message, toolContainer, canvasContainer, buttonContainer);
+renderStripSidebar();
 notifyChange();
