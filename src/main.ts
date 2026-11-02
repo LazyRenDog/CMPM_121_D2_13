@@ -38,16 +38,13 @@ undoButton.textContent = "Undo";
 const redoButton = document.createElement("button");
 redoButton.textContent = "Redo";
 
-const redrawCheckButton = document.createElement("button");
-redrawCheckButton.textContent = "Redraw (Dev Check)";
-
 const clearButton = document.createElement("button");
 clearButton.textContent = "Clear Comic";
 
 const canvas = document.createElement("canvas");
 canvas.width = canvasWidth;
 canvas.height = canvasHeight;
-canvas.style = "border: 2px solid black";
+canvas.style.border = "2px solid black";
 canvas.style.background = "#ffffff";
 canvas.style.cursor = "crosshair";
 
@@ -142,7 +139,7 @@ const cursorState: CursorState = {
 
 let activeStroke: StrokeCommand | null = null;
 
-function redraw(): void {
+function renderScene(): void {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   for (const cmd of drawingState.commands) {
     cmd.display(ctx);
@@ -153,7 +150,14 @@ function redraw(): void {
 
   undoButton.disabled = drawingState.commands.length === 0;
   redoButton.disabled = drawingState.redoCommands.length === 0;
+  clearButton.disabled = drawingState.commands.length === 0;
 }
+
+function notifyChange(): void {
+  canvas.dispatchEvent(new Event("drawing-changed"));
+}
+
+canvas.addEventListener("drawing-changed", renderScene);
 
 canvas.addEventListener("mousedown", (mouse) => {
   cursorState.x = mouse.offsetX;
@@ -171,7 +175,7 @@ canvas.addEventListener("mousedown", (mouse) => {
 
     message.textContent = `Commited actions: ${drawingState.commands.length}`;
 
-    redraw();
+    notifyChange();
     return;
   }
 
@@ -180,7 +184,7 @@ canvas.addEventListener("mousedown", (mouse) => {
     { x: cursorState.x, y: cursorState.y },
     penSize,
   );
-  redraw();
+  notifyChange();
 });
 
 canvas.addEventListener("mousemove", (mouse) => {
@@ -191,7 +195,7 @@ canvas.addEventListener("mousemove", (mouse) => {
       x: cursorState.x,
       y: cursorState.y,
     });
-    redraw();
+    notifyChange();
   }
 });
 
@@ -203,7 +207,7 @@ function finishStroke(): void {
   }
   cursorState.isDown = false;
   activeStroke = null;
-  redraw();
+  notifyChange();
 }
 
 canvas.addEventListener("mouseout", finishStroke);
@@ -216,7 +220,7 @@ undoButton.addEventListener("click", () => {
   if (lastCommand) {
     drawingState.redoCommands.push(lastCommand);
   }
-  redraw();
+  notifyChange();
   message.textContent = `Commited actions: ${drawingState.commands.length}`;
 });
 
@@ -228,22 +232,15 @@ redoButton.addEventListener("click", () => {
     drawingState.commands.push(undoneCommand);
   }
 
-  redraw();
+  notifyChange();
   message.textContent = `Commited actions: ${drawingState.commands.length}`;
-});
-
-redrawCheckButton.addEventListener("click", () => {
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-  redraw();
-  message.textContent =
-    `Surface cleared (${drawingState.commands.length} items)`;
 });
 
 clearButton.addEventListener("click", () => {
   if (drawingState.commands.length === 0) return;
   drawingState.commands.length = 0;
   drawingState.redoCommands.length = 0;
-  redraw();
+  notifyChange();
   message.textContent = "Document cleared";
 });
 
@@ -305,8 +302,8 @@ buttonContainer.style.alignItems = "center";
 buttonContainer.append(
   undoButton,
   redoButton,
-  redrawCheckButton,
   clearButton,
 );
 
 app.append(title, message, toolContainer, canvasContainer, buttonContainer);
+notifyChange();
