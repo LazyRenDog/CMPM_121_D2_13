@@ -88,7 +88,7 @@ const title = document.createElement("h1");
 title.textContent = "Comic Strip Generator";
 
 const message = document.createElement("p");
-message.textContent = "Draw on the canvas to start your comic";
+message.textContent = "Draw or drag stickers onto the comic canvas";
 
 const undoButton = document.createElement("button");
 undoButton.textContent = "Undo";
@@ -152,6 +152,11 @@ class StickerCommand implements DrawableCommand {
     this.x = x;
     this.y = y;
     this.sticker = sticker;
+  }
+
+  moveTo(x: number, y: number): void {
+    this.x = x;
+    this.y = y;
   }
 
   display(targetCtx: CanvasRenderingContext2D): void {
@@ -307,7 +312,7 @@ toolContainer.style.marginBottom = "16px";
 toolContainer.style.justifyContent = "center";
 toolContainer.style.alignItems = "center";
 
-let activeStroke: StrokeCommand | null = null;
+let activeCommand: StrokeCommand | StickerCommand | null = null;
 
 function renderToolButtons(): void {
   toolContainer.replaceChildren();
@@ -472,8 +477,8 @@ function renderScene(): void {
   for (const cmd of drawingState.commands) {
     cmd.display(ctx);
   }
-  if (activeStroke) {
-    activeStroke.display(ctx);
+  if (activeCommand) {
+    activeCommand.display(ctx);
   }
 
   undoButton.disabled = drawingState.commands.length === 0;
@@ -490,55 +495,65 @@ canvas.addEventListener("drawing-changed", renderScene);
 canvas.addEventListener("mousedown", (mouse) => {
   cursorState.x = mouse.offsetX;
   cursorState.y = mouse.offsetY;
+  cursorState.isDown = true;
 
   if (currentTool === "sticker") {
-    const sticker = new StickerCommand(
+    activeCommand = new StickerCommand(
       cursorState.x,
       cursorState.y,
       selectedSticker,
     );
-
-    drawingState.commands.push(sticker);
-    drawingState.redoCommands.length = 0;
-
-    message.textContent = `Committed actions: ${drawingState.commands.length}`;
-    notifyChange();
-    return;
+  } else {
+    activeCommand = new StrokeCommand(
+      { x: cursorState.x, y: cursorState.y },
+      penSize,
+    );
   }
-
-  cursorState.isDown = true;
-  activeStroke = new StrokeCommand(
-    { x: cursorState.x, y: cursorState.y },
-    penSize,
-  );
   notifyChange();
 });
 
 canvas.addEventListener("mousemove", (mouse) => {
-  if (cursorState.isDown && activeStroke) {
-    cursorState.x = mouse.offsetX;
-    cursorState.y = mouse.offsetY;
-    activeStroke.addPoint({
-      x: cursorState.x,
-      y: cursorState.y,
-    });
-    notifyChange();
+  if (!cursorState.isDown || !activeCommand) return;
+  cursorState.x = mouse.offsetX;
+  cursorState.y = mouse.offsetY;
+
+  if (activeCommand instanceof StrokeCommand) {
+    activeCommand.addPoint({ x: cursorState.x, y: cursorState.y });
+  } else if (activeCommand instanceof StickerCommand) {
+    activeCommand.moveTo(cursorState.x, cursorState.y);
   }
+  notifyChange();
 });
 
-function finishStroke(): void {
-  if (cursorState.isDown && activeStroke) {
-    drawingState.commands.push(activeStroke);
+function commitGesture(): void {
+  if (cursorState.isDown && activeCommand) {
+    drawingState.commands.push(activeCommand);
     drawingState.redoCommands.length = 0;
     message.textContent = `Committed actions: ${drawingState.commands.length}`;
   }
   cursorState.isDown = false;
-  activeStroke = null;
+  activeCommand = null;
   notifyChange();
 }
 
-canvas.addEventListener("mouseout", finishStroke);
-canvas.addEventListener("mouseup", finishStroke);
+function cancelGesture(): void {
+  const hadActiveGesture = cursorState.isDown && activeCommand !== null;
+  cursorState.isDown = false;
+  activeCommand = null;
+  notifyChange();
+  if (hadActiveGesture) {
+    message.textContent =
+      `Gesture cancelled (Redo stack preserved: ${drawingState.redoCommands.length})`;
+  }
+}
+
+canvas.addEventListener("mouseup", commitGesture);
+canvas.addEventListener("mouseout", cancelGesture);
+globalThis.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && cursorState.isDown) {
+    cancelGesture();
+  }
+});
 
 undoButton.addEventListener("click", () => {
   if (drawingState.commands.length === 0) return;
