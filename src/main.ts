@@ -9,7 +9,20 @@ const canvasWidth = 500;
 const canvasHeight = 500; //plan on making this change depending on if in full strip or frame mode
 let penSize = 3;
 let currentTool: "pen" | "sticker" = "pen";
-let selectedSticker = "😂";
+
+interface StickerTool {
+  id: string;
+  name: string;
+  content: string;
+}
+
+const stickerTools: StickerTool[] = [
+  { id: "laugh", name: "Laugh", content: "😂" },
+  { id: "cry", name: "Cry", content: "😭" },
+  { id: "basketball", name: "Basketball", content: "🏀" },
+];
+
+let selectedStickerTool: StickerTool = stickerTools[0];
 
 const title = document.createElement("h1");
 title.textContent = "Comic Strip Generator";
@@ -22,15 +35,6 @@ thickPenButton.textContent = "Thick Pen";
 
 const thinPenButton = document.createElement("button");
 thinPenButton.textContent = "Thin Pen";
-
-const laughStickerButton = document.createElement("button");
-laughStickerButton.textContent = "😂";
-
-const cryStickerButton = document.createElement("button");
-cryStickerButton.textContent = "😭";
-
-const basketballStickerButton = document.createElement("button");
-basketballStickerButton.textContent = "🏀";
 
 const undoButton = document.createElement("button");
 undoButton.textContent = "Undo";
@@ -155,6 +159,42 @@ function redraw(): void {
   redoButton.disabled = drawingState.redoCommands.length === 0;
 }
 
+function createStickerButton(tool: StickerTool): HTMLButtonElement {
+  const button = document.createElement("button");
+
+  button.textContent = `${tool.name} ${tool.content}`;
+
+  button.addEventListener("click", () => {
+    currentTool = "sticker";
+    selectedStickerTool = tool;
+
+    message.textContent = `Selected sticker: ${tool.name}`;
+  });
+
+  return button;
+}
+
+const toolContainer = document.createElement("div");
+
+Object.assign(toolContainer.style, {
+  display: "flex",
+  gap: "16px",
+  marginBottom: "16px",
+  justifyContent: "center",
+  alignItems: "center",
+});
+
+function renderStickerTools(): void {
+  toolContainer.replaceChildren(thinPenButton, thickPenButton);
+
+  for (const tool of stickerTools) {
+    const button = createStickerButton(tool);
+    toolContainer.appendChild(button);
+  }
+}
+
+renderStickerTools();
+
 canvas.addEventListener("mousedown", (mouse) => {
   cursorState.x = mouse.offsetX;
   cursorState.y = mouse.offsetY;
@@ -163,7 +203,7 @@ canvas.addEventListener("mousedown", (mouse) => {
     const sticker = new StickerCommand(
       cursorState.x,
       cursorState.y,
-      selectedSticker,
+      selectedStickerTool.content,
     );
 
     drawingState.commands.push(sticker);
@@ -257,36 +297,6 @@ thickPenButton.addEventListener("click", () => {
   currentTool = "pen";
 });
 
-laughStickerButton.addEventListener("click", () => {
-  currentTool = "sticker";
-  selectedSticker = "😂";
-});
-
-cryStickerButton.addEventListener("click", () => {
-  currentTool = "sticker";
-  selectedSticker = "😭";
-});
-
-basketballStickerButton.addEventListener("click", () => {
-  currentTool = "sticker";
-  selectedSticker = "🏀";
-});
-
-const toolContainer = document.createElement("div");
-toolContainer.style.display = "flex";
-toolContainer.style.flexDirection = "row";
-toolContainer.style.gap = "16px";
-toolContainer.style.marginBottom = "16px";
-toolContainer.style.justifyContent = "center";
-toolContainer.style.alignItems = "center";
-toolContainer.append(
-  thinPenButton,
-  thickPenButton,
-  laughStickerButton,
-  cryStickerButton,
-  basketballStickerButton,
-);
-
 const canvasContainer = document.createElement("div");
 canvasContainer.style.display = "flex";
 canvasContainer.style.flexDirection = "row";
@@ -310,3 +320,5 @@ buttonContainer.append(
 );
 
 app.append(title, message, toolContainer, canvasContainer, buttonContainer);
+
+redraw();
