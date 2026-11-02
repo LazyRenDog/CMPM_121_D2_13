@@ -29,6 +29,17 @@ interface ColorSwatch {
   hex: string;
 }
 
+interface ExportTypeOption {
+  ext: string;
+  mime: string;
+  label: string;
+}
+
+interface ExportResolutionOption {
+  scale: number;
+  label: string;
+}
+
 const comicStripTemplates: ComicStripTemplate[] = [
   {
     id: "single-500",
@@ -89,6 +100,19 @@ const colorPalette: ColorSwatch[] = [
   { name: "Comic Blue", hex: "#1d3557" },
   { name: "Action Gold", hex: "#ffb703" },
   { name: "Emerald Green", hex: "#2a9d8f" },
+];
+
+const exportTypes: ExportTypeOption[] = [
+  { ext: "png", mime: "image/png", label: "PNG Image (.png)" },
+  { ext: "jpg", mime: "image/jpeg", label: "JPEG Image (.jpg)" },
+  { ext: "webp", mime: "image/webp", label: "WebP Image (.webp)" },
+];
+
+const exportResolutions: ExportResolutionOption[] = [
+  { scale: 1, label: "1x Standard" },
+  { scale: 2, label: "2x High-Res (Recommended)" },
+  { scale: 3, label: "3x Ultra HD" },
+  { scale: 4, label: "4x Print Quality" },
 ];
 
 let customStripCounter = 1;
@@ -319,6 +343,121 @@ customStripSection.append(
 
 leftStripSidebar.append(sidebarHeader, stripListContainer, customStripSection);
 
+// Export Dropdown Wrapper & Menu
+const exportDropdownWrapper = document.createElement("div");
+exportDropdownWrapper.style.position = "relative";
+exportDropdownWrapper.style.display = "inline-block";
+
+const exportMenuToggleButton = document.createElement("button");
+exportMenuToggleButton.textContent = "Export Comic ▾";
+exportMenuToggleButton.style.fontWeight = "bold";
+exportMenuToggleButton.style.padding = "6px 12px";
+exportMenuToggleButton.style.cursor = "pointer";
+
+const exportDropdownMenu = document.createElement("div");
+exportDropdownMenu.style.display = "none";
+exportDropdownMenu.style.position = "absolute";
+exportDropdownMenu.style.bottom = "110%";
+exportDropdownMenu.style.left = "0";
+exportDropdownMenu.style.minWidth = "260px";
+exportDropdownMenu.style.padding = "12px";
+exportDropdownMenu.style.background = "#ffffff";
+exportDropdownMenu.style.border = "2px solid #1d3557";
+exportDropdownMenu.style.borderRadius = "8px";
+exportDropdownMenu.style.boxShadow = "0 4px 12px rgba(0,0,0,0.15)";
+exportDropdownMenu.style.textAlign = "left";
+exportDropdownMenu.style.zIndex = "10";
+
+const exportTypeLabel = document.createElement("label");
+exportTypeLabel.textContent = "Export Type:";
+exportTypeLabel.style.display = "block";
+exportTypeLabel.style.fontSize = "13px";
+exportTypeLabel.style.fontWeight = "bold";
+exportTypeLabel.style.marginBottom = "4px";
+
+const exportTypeSelect = document.createElement("select");
+exportTypeSelect.style.width = "100%";
+exportTypeSelect.style.padding = "4px";
+exportTypeSelect.style.marginBottom = "10px";
+for (const fmt of exportTypes) {
+  const opt = document.createElement("option");
+  opt.value = fmt.ext;
+  opt.textContent = fmt.label;
+  exportTypeSelect.appendChild(opt);
+}
+
+const exportResolutionLabel = document.createElement("label");
+exportResolutionLabel.textContent = "Resolution:";
+exportResolutionLabel.style.display = "block";
+exportResolutionLabel.style.fontSize = "13px";
+exportResolutionLabel.style.fontWeight = "bold";
+exportResolutionLabel.style.marginBottom = "4px";
+
+const exportResolutionSelect = document.createElement("select");
+exportResolutionSelect.style.width = "100%";
+exportResolutionSelect.style.padding = "4px";
+exportResolutionSelect.style.marginBottom = "10px";
+
+function updateResolutionOptions(): void {
+  const currentVal = exportResolutionSelect.value || "2";
+  exportResolutionSelect.replaceChildren();
+  for (const res of exportResolutions) {
+    const opt = document.createElement("option");
+    opt.value = String(res.scale);
+    const outW = drawingState.strip.width * res.scale;
+    const outH = drawingState.strip.height * res.scale;
+    opt.textContent = `${res.label} (${outW}×${outH} px)`;
+    exportResolutionSelect.appendChild(opt);
+  }
+  exportResolutionSelect.value = currentVal;
+}
+
+const exportFileNameLabel = document.createElement("label");
+exportFileNameLabel.textContent = "File Name & PC Location:";
+exportFileNameLabel.style.display = "block";
+exportFileNameLabel.style.fontSize = "13px";
+exportFileNameLabel.style.fontWeight = "bold";
+exportFileNameLabel.style.marginBottom = "4px";
+
+const exportFileNameInput = document.createElement("input");
+exportFileNameInput.type = "text";
+exportFileNameInput.value = "my-comic-strip";
+exportFileNameInput.style.width = "100%";
+exportFileNameInput.style.boxSizing = "border-box";
+exportFileNameInput.style.padding = "4px";
+exportFileNameInput.style.marginBottom = "10px";
+
+const saveToPcButton = document.createElement("button");
+saveToPcButton.textContent = "Choose Location on PC & Save...";
+saveToPcButton.style.width = "100%";
+saveToPcButton.style.padding = "8px";
+saveToPcButton.style.cursor = "pointer";
+saveToPcButton.style.fontWeight = "bold";
+saveToPcButton.style.background = "#1d3557";
+saveToPcButton.style.color = "#ffffff";
+saveToPcButton.style.border = "none";
+saveToPcButton.style.borderRadius = "4px";
+
+exportDropdownMenu.append(
+  exportTypeLabel,
+  exportTypeSelect,
+  exportResolutionLabel,
+  exportResolutionSelect,
+  exportFileNameLabel,
+  exportFileNameInput,
+  saveToPcButton,
+);
+
+exportDropdownWrapper.append(exportMenuToggleButton, exportDropdownMenu);
+
+exportMenuToggleButton.addEventListener("click", () => {
+  const isOpen = exportDropdownMenu.style.display === "block";
+  if (!isOpen) {
+    updateResolutionOptions();
+  }
+  exportDropdownMenu.style.display = isOpen ? "none" : "block";
+});
+
 const toolContainer = document.createElement("div");
 toolContainer.style.display = "flex";
 toolContainer.style.flexDirection = "row";
@@ -442,6 +581,7 @@ function selectComicStrip(template: ComicStripTemplate): void {
   drawingState.strip = template;
   canvas.width = template.width;
   canvas.height = template.height;
+  updateResolutionOptions();
   renderStripSidebar();
   notifyChange();
   message.textContent =
@@ -639,9 +779,11 @@ buttonContainer.append(
   undoButton,
   redoButton,
   clearButton,
+  exportDropdownWrapper,
 );
 
 app.append(title, message, toolContainer, canvasContainer, buttonContainer);
+updateResolutionOptions();
 renderToolButtons();
 renderStripSidebar();
 notifyChange();
