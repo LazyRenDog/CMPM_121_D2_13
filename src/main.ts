@@ -12,6 +12,18 @@ interface ComicStripTemplate {
   cols: number;
 }
 
+interface PenPreset {
+  id: string;
+  label: string;
+  width: number;
+}
+
+interface StickerTool {
+  id: string;
+  label: string;
+  sticker: string;
+}
+
 const comicStripTemplates: ComicStripTemplate[] = [
   {
     id: "single-500",
@@ -55,31 +67,28 @@ const comicStripTemplates: ComicStripTemplate[] = [
   },
 ];
 
+const penPresets: PenPreset[] = [
+  { id: "thin", label: "Thin Pen (3px)", width: 3 },
+  { id: "thick", label: "Thick Pen (10px)", width: 10 },
+];
+
+const stickerTools: StickerTool[] = [
+  { id: "laugh", label: "😂", sticker: "😂" },
+  { id: "cry", label: "😭", sticker: "😭" },
+  { id: "basketball", label: "🏀", sticker: "🏀" },
+];
+
 let customStripCounter = 1;
-let penSize = 3;
+let customStickerCounter = 1;
+let penSize = penPresets[0].width;
 let currentTool: "pen" | "sticker" = "pen";
-let selectedSticker = "😂";
+let selectedSticker = stickerTools[0].sticker;
 
 const title = document.createElement("h1");
 title.textContent = "Comic Strip Generator";
 
 const message = document.createElement("p");
 message.textContent = "Draw on the canvas to start your comic";
-
-const thickPenButton = document.createElement("button");
-thickPenButton.textContent = "Thick Pen";
-
-const thinPenButton = document.createElement("button");
-thinPenButton.textContent = "Thin Pen";
-
-const laughStickerButton = document.createElement("button");
-laughStickerButton.textContent = "😂";
-
-const cryStickerButton = document.createElement("button");
-cryStickerButton.textContent = "😭";
-
-const basketballStickerButton = document.createElement("button");
-basketballStickerButton.textContent = "🏀";
 
 const undoButton = document.createElement("button");
 undoButton.textContent = "Undo";
@@ -289,7 +298,74 @@ customStripSection.append(
 
 leftStripSidebar.append(sidebarHeader, stripListContainer, customStripSection);
 
+const toolContainer = document.createElement("div");
+toolContainer.style.display = "flex";
+toolContainer.style.flexDirection = "row";
+toolContainer.style.flexWrap = "wrap";
+toolContainer.style.gap = "10px";
+toolContainer.style.marginBottom = "16px";
+toolContainer.style.justifyContent = "center";
+toolContainer.style.alignItems = "center";
+
 let activeStroke: StrokeCommand | null = null;
+
+function renderToolButtons(): void {
+  toolContainer.replaceChildren();
+
+  for (const pen of penPresets) {
+    const btn = document.createElement("button");
+    const isActive = currentTool === "pen" && penSize === pen.width;
+    btn.textContent = pen.label;
+    btn.style.fontWeight = isActive ? "bold" : "normal";
+    btn.style.outline = isActive ? "2px solid #1d3557" : "none";
+    btn.addEventListener("click", () => {
+      currentTool = "pen";
+      penSize = pen.width;
+      renderToolButtons();
+      message.textContent = `Selected tool: ${pen.label}`;
+    });
+    toolContainer.appendChild(btn);
+  }
+
+  for (const item of stickerTools) {
+    const btn = document.createElement("button");
+    const isActive = currentTool === "sticker" &&
+      selectedSticker === item.sticker;
+    btn.textContent = item.label;
+    btn.style.fontWeight = isActive ? "bold" : "normal";
+    btn.style.outline = isActive ? "2px solid #e63946" : "none";
+    btn.addEventListener("click", () => {
+      currentTool = "sticker";
+      selectedSticker = item.sticker;
+      renderToolButtons();
+      message.textContent = `Selected sticker: ${item.label}`;
+    });
+    toolContainer.appendChild(btn);
+  }
+
+  const addCustomStickerBtn = document.createElement("button");
+  addCustomStickerBtn.textContent = "+ Custom Sticker";
+  addCustomStickerBtn.addEventListener("click", () => {
+    const input = prompt("Enter an emoji or text for your custom sticker:");
+    if (input === null) return;
+    const trimmed = input.trim();
+    if (trimmed.length === 0) {
+      message.textContent = "Empty sticker ignored.";
+      return;
+    }
+    const newSticker: StickerTool = {
+      id: `custom-sticker-${customStickerCounter++}`,
+      label: trimmed,
+      sticker: trimmed,
+    };
+    stickerTools.push(newSticker);
+    currentTool = "sticker";
+    selectedSticker = newSticker.sticker;
+    renderToolButtons();
+    message.textContent = `Created custom sticker: ${newSticker.label}`;
+  });
+  toolContainer.appendChild(addCustomStickerBtn);
+}
 
 function drawComicStripFrames(
   targetCtx: CanvasRenderingContext2D,
@@ -492,46 +568,6 @@ clearButton.addEventListener("click", () => {
   message.textContent = "Document cleared";
 });
 
-thinPenButton.addEventListener("click", () => {
-  penSize = 3;
-  currentTool = "pen";
-});
-
-thickPenButton.addEventListener("click", () => {
-  penSize = 10;
-  currentTool = "pen";
-});
-
-laughStickerButton.addEventListener("click", () => {
-  currentTool = "sticker";
-  selectedSticker = "😂";
-});
-
-cryStickerButton.addEventListener("click", () => {
-  currentTool = "sticker";
-  selectedSticker = "😭";
-});
-
-basketballStickerButton.addEventListener("click", () => {
-  currentTool = "sticker";
-  selectedSticker = "🏀";
-});
-
-const toolContainer = document.createElement("div");
-toolContainer.style.display = "flex";
-toolContainer.style.flexDirection = "row";
-toolContainer.style.gap = "16px";
-toolContainer.style.marginBottom = "16px";
-toolContainer.style.justifyContent = "center";
-toolContainer.style.alignItems = "center";
-toolContainer.append(
-  thinPenButton,
-  thickPenButton,
-  laughStickerButton,
-  cryStickerButton,
-  basketballStickerButton,
-);
-
 const canvasContainer = document.createElement("div");
 canvasContainer.style.display = "flex";
 canvasContainer.style.flexDirection = "row";
@@ -554,5 +590,6 @@ buttonContainer.append(
 );
 
 app.append(title, message, toolContainer, canvasContainer, buttonContainer);
+renderToolButtons();
 renderStripSidebar();
 notifyChange();
